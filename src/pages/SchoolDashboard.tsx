@@ -12,9 +12,11 @@ import {
   BookOpen,
   CheckCircle,
   XCircle,
+  Eye,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import StudentReportModal from "@/components/StudentReportModal";
 
 interface StudentData {
   id: string;
@@ -34,6 +36,8 @@ const SchoolDashboard = () => {
   const [selectedClass, setSelectedClass] = useState("all");
   const [students, setStudents] = useState<StudentData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState<StudentData | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     const storedSchoolName = localStorage.getItem("schoolName");
@@ -129,6 +133,11 @@ const SchoolDashboard = () => {
   const handleLogout = () => {
     localStorage.clear();
     navigate("/");
+  };
+
+  const handleViewReport = (student: StudentData) => {
+    setSelectedStudent(student);
+    setShowReportModal(true);
   };
 
   const filteredStudents = students.filter((student) => {
@@ -268,6 +277,7 @@ const SchoolDashboard = () => {
                       <th className="text-left p-4 font-semibold">Topic Studied</th>
                       <th className="text-left p-4 font-semibold">Trend</th>
                       <th className="text-left p-4 font-semibold">Sessions</th>
+                      <th className="text-left p-4 font-semibold">Report</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -304,6 +314,17 @@ const SchoolDashboard = () => {
                         <td className="p-4 text-muted-foreground">{student.topicStudied}</td>
                         <td className="p-4">{getTrendLabel(student.improvementTrend)}</td>
                         <td className="p-4 font-medium">{student.totalSessions}</td>
+                        <td className="p-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewReport(student)}
+                            className="text-primary hover:text-primary/80"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -342,7 +363,7 @@ const SchoolDashboard = () => {
                         </span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                       <div>
                         <span className="text-muted-foreground">Topic: </span>
                         {student.topicStudied}
@@ -352,6 +373,15 @@ const SchoolDashboard = () => {
                         {getTrendLabel(student.improvementTrend)}
                       </div>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewReport(student)}
+                      className="w-full"
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      View Detailed Report
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -359,6 +389,21 @@ const SchoolDashboard = () => {
           )}
         </div>
       </main>
+
+      {/* Student Report Modal */}
+      {selectedStudent && (
+        <StudentReportModal
+          isOpen={showReportModal}
+          onClose={() => {
+            setShowReportModal(false);
+            setSelectedStudent(null);
+          }}
+          studentId={selectedStudent.id}
+          studentName={selectedStudent.name}
+          studentPhoto={selectedStudent.photo}
+          studentClass={selectedStudent.class}
+        />
+      )}
     </div>
   );
 };
