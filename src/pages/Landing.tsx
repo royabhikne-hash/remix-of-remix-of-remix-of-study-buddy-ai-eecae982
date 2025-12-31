@@ -10,21 +10,11 @@ const Landing = () => {
       {/* Header */}
       <header className="container mx-auto py-6 px-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => navigate("/admin-login")}
-              className="text-xs text-muted-foreground hover:text-destructive"
-            >
-              Admin
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">Edu improvement AI</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+              <BookOpen className="w-6 h-6 text-primary-foreground" />
             </div>
+            <span className="text-xl font-bold text-foreground">Edu improvement AI</span>
           </div>
           <div className="flex gap-3">
             <Button variant="ghost" onClick={() => navigate("/login")}>

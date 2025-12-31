@@ -201,22 +201,40 @@ const SchoolDashboard = () => {
 
   const handleApproveStudent = async (studentId: string) => {
     setApprovingId(studentId);
+
     try {
-      const { error } = await supabase
-        .from("students")
-        .update({ 
-          is_approved: true, 
-          approved_at: new Date().toISOString(),
-          rejection_reason: null,
-        })
-        .eq("id", studentId);
+      const schoolId = localStorage.getItem("schoolId");
+      const schoolPassword = sessionStorage.getItem("schoolPassword");
+
+      if (!schoolId || !schoolPassword) {
+        toast({
+          title: "Session expired",
+          description: "Please login again to approve students.",
+          variant: "destructive",
+        });
+        localStorage.clear();
+        sessionStorage.clear();
+        navigate("/school-login");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("school-student-approval", {
+        body: {
+          action: "approve",
+          schoolId,
+          schoolPassword,
+          studentId,
+        },
+      });
 
       if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || "Approval failed");
+      }
 
-      // Update local state
-      setStudents(prev => prev.map(s => 
-        s.id === studentId ? { ...s, isApproved: true } : s
-      ));
+      setStudents((prev) =>
+        prev.map((s) => (s.id === studentId ? { ...s, isApproved: true } : s))
+      );
 
       toast({
         title: "Student Approved ✓",
@@ -226,7 +244,7 @@ const SchoolDashboard = () => {
       console.error("Error approving student:", error);
       toast({
         title: "Approval Failed",
-        description: "Could not approve student. Please try again.",
+        description: error instanceof Error ? error.message : "Could not approve student. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -242,27 +260,47 @@ const SchoolDashboard = () => {
 
   const handleRejectStudent = async () => {
     if (!rejectingStudent) return;
-    
+
     setApprovingId(rejectingStudent.id);
     try {
-      const { error } = await supabase
-        .from("students")
-        .update({ 
-          is_approved: false,
-          rejection_reason: rejectionReason.trim() || "No reason provided",
-        })
-        .eq("id", rejectingStudent.id);
+      const schoolId = localStorage.getItem("schoolId");
+      const schoolPassword = sessionStorage.getItem("schoolPassword");
+
+      if (!schoolId || !schoolPassword) {
+        toast({
+          title: "Session expired",
+          description: "Please login again to reject students.",
+          variant: "destructive",
+        });
+        localStorage.clear();
+        sessionStorage.clear();
+        navigate("/school-login");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("school-student-approval", {
+        body: {
+          action: "reject",
+          schoolId,
+          schoolPassword,
+          studentId: rejectingStudent.id,
+          rejectionReason: rejectionReason.trim() || "No reason provided",
+        },
+      });
 
       if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || "Rejection failed");
+      }
 
       // Remove from local state
-      setStudents(prev => prev.filter(s => s.id !== rejectingStudent.id));
+      setStudents((prev) => prev.filter((s) => s.id !== rejectingStudent.id));
 
       toast({
         title: "Student Rejected",
         description: "Student request has been rejected with reason.",
       });
-      
+
       setShowRejectDialog(false);
       setRejectingStudent(null);
       setRejectionReason("");
@@ -270,7 +308,7 @@ const SchoolDashboard = () => {
       console.error("Error rejecting student:", error);
       toast({
         title: "Rejection Failed",
-        description: "Could not reject student. Please try again.",
+        description: error instanceof Error ? error.message : "Could not reject student. Please try again.",
         variant: "destructive",
       });
     } finally {
