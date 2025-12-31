@@ -1,9 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Image, X, Loader2, Brain, TrendingUp, AlertTriangle, Volume2, VolumeX, CheckCircle, XCircle } from "lucide-react";
+import { Send, Image, X, Loader2, Brain, TrendingUp, AlertTriangle, Volume2, VolumeX, CheckCircle, XCircle, ThumbsUp, HelpCircle, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+type ReactionType = "like" | "helpful" | "confusing";
+
+interface MessageReaction {
+  type: ReactionType;
+  count: number;
+  userReacted: boolean;
+}
 
 interface ChatMessage {
   id: string;
@@ -11,6 +19,7 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   imageUrl?: string;
+  reactions?: Record<ReactionType, MessageReaction>;
 }
 
 interface RealTimeAnalysis {
@@ -85,6 +94,9 @@ const StudyChat = ({ onEndStudy, studentId }: StudyChatProps) => {
     topicsCovered: [],
   });
   
+  // Message reactions state
+  const [messageReactions, setMessageReactions] = useState<Record<string, Record<ReactionType, MessageReaction>>>({});
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,6 +107,44 @@ const StudyChat = ({ onEndStudy, studentId }: StudyChatProps) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, currentQuestionIndex]);
+
+  // Handle message reactions
+  const handleReaction = (messageId: string, reactionType: ReactionType) => {
+    setMessageReactions(prev => {
+      const messageReacts = prev[messageId] || {
+        like: { type: "like", count: 0, userReacted: false },
+        helpful: { type: "helpful", count: 0, userReacted: false },
+        confusing: { type: "confusing", count: 0, userReacted: false }
+      };
+      
+      const currentReaction = messageReacts[reactionType];
+      const newUserReacted = !currentReaction.userReacted;
+      
+      return {
+        ...prev,
+        [messageId]: {
+          ...messageReacts,
+          [reactionType]: {
+            ...currentReaction,
+            count: newUserReacted ? currentReaction.count + 1 : Math.max(0, currentReaction.count - 1),
+            userReacted: newUserReacted
+          }
+        }
+      };
+    });
+
+    // Show feedback toast
+    const reactionLabels: Record<ReactionType, string> = {
+      like: "👍 Liked!",
+      helpful: "💡 Marked as helpful!",
+      confusing: "🤔 Marked as confusing - we'll explain better!"
+    };
+    
+    toast({
+      title: reactionLabels[reactionType],
+      duration: 1500
+    });
+  };
 
   // Text-to-Speech function
   const speakText = (text: string, messageId: string) => {
@@ -483,45 +533,94 @@ const StudyChat = ({ onEndStudy, studentId }: StudyChatProps) => {
 
       {/* Messages Area - Enhanced */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
-          >
-            <div className={`max-w-[85%] ${
-              message.role === "user" 
-                ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-2xl rounded-br-md px-4 py-3 shadow-lg shadow-primary/20" 
-                : "bg-gradient-to-br from-secondary to-secondary/80 text-secondary-foreground rounded-2xl rounded-bl-md px-4 py-3 shadow-md border border-border/30"
-            } relative group`}>
-              {message.imageUrl && (
-                <img
-                  src={message.imageUrl}
-                  alt="Uploaded"
-                  className="max-w-[200px] rounded-xl mb-2 shadow-md"
-                />
-              )}
-              <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-              <div className="flex items-center justify-between mt-2 pt-1 border-t border-current/10">
-                <span className="text-xs opacity-60">
-                  {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
+        {messages.map((message) => {
+          const reactions = messageReactions[message.id];
+          
+          return (
+            <div
+              key={message.id}
+              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
+            >
+              <div className={`max-w-[85%] ${
+                message.role === "user" 
+                  ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-2xl rounded-br-md px-4 py-3 shadow-lg shadow-primary/20" 
+                  : "bg-gradient-to-br from-secondary to-secondary/80 text-secondary-foreground rounded-2xl rounded-bl-md px-4 py-3 shadow-md border border-border/30"
+              } relative group`}>
+                {message.imageUrl && (
+                  <img
+                    src={message.imageUrl}
+                    alt="Uploaded"
+                    className="max-w-[200px] rounded-xl mb-2 shadow-md"
+                  />
+                )}
+                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                
+                {/* Message footer with time and actions */}
+                <div className="flex items-center justify-between mt-2 pt-1 border-t border-current/10">
+                  <span className="text-xs opacity-60">
+                    {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {message.role === "assistant" && (
+                    <button
+                      onClick={() => speakText(message.content, message.id)}
+                      className="ml-2 p-1.5 rounded-full hover:bg-foreground/10 transition-all duration-200"
+                      title="Read aloud"
+                    >
+                      {speakingMessageId === message.id ? (
+                        <VolumeX className="w-4 h-4 text-primary animate-pulse" />
+                      ) : (
+                        <Volume2 className="w-4 h-4 opacity-60 hover:opacity-100" />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* Reactions for AI messages */}
                 {message.role === "assistant" && (
-                  <button
-                    onClick={() => speakText(message.content, message.id)}
-                    className="ml-2 p-1.5 rounded-full hover:bg-foreground/10 transition-all duration-200"
-                    title="Read aloud"
-                  >
-                    {speakingMessageId === message.id ? (
-                      <VolumeX className="w-4 h-4 text-primary animate-pulse" />
-                    ) : (
-                      <Volume2 className="w-4 h-4 opacity-60 hover:opacity-100" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-1 mt-2 pt-2 border-t border-current/5">
+                    <span className="text-xs opacity-50 mr-1">React:</span>
+                    <button
+                      onClick={() => handleReaction(message.id, "like")}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all duration-200 ${
+                        reactions?.like?.userReacted 
+                          ? "bg-primary/20 text-primary" 
+                          : "hover:bg-foreground/10 opacity-60 hover:opacity-100"
+                      }`}
+                      title="Like"
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                      {reactions?.like?.count ? <span>{reactions.like.count}</span> : null}
+                    </button>
+                    <button
+                      onClick={() => handleReaction(message.id, "helpful")}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all duration-200 ${
+                        reactions?.helpful?.userReacted 
+                          ? "bg-accent/20 text-accent" 
+                          : "hover:bg-foreground/10 opacity-60 hover:opacity-100"
+                      }`}
+                      title="Helpful"
+                    >
+                      <Lightbulb className="w-3.5 h-3.5" />
+                      {reactions?.helpful?.count ? <span>{reactions.helpful.count}</span> : null}
+                    </button>
+                    <button
+                      onClick={() => handleReaction(message.id, "confusing")}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all duration-200 ${
+                        reactions?.confusing?.userReacted 
+                          ? "bg-warning/20 text-warning" 
+                          : "hover:bg-foreground/10 opacity-60 hover:opacity-100"
+                      }`}
+                      title="Confusing"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      {reactions?.confusing?.count ? <span>{reactions.confusing.count}</span> : null}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         
         {/* Quiz Question UI */}
         {isQuizMode && currentQuestion && !showResult && (
