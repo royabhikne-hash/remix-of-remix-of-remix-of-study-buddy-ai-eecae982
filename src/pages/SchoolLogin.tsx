@@ -37,6 +37,8 @@ const SchoolLogin = () => {
         localStorage.setItem("schoolId", school.school_id);
         localStorage.setItem("schoolUUID", school.id);
         localStorage.setItem("schoolName", school.name);
+        // Store password for secure approve/reject calls (clears when tab closes)
+        sessionStorage.setItem("schoolPassword", password);
         toast({
           title: "Welcome!",
           description: "School dashboard access granted.",
@@ -134,9 +136,6 @@ const SchoolLogin = () => {
             <div className="mt-6 pt-4 border-t border-border text-center space-y-2">
               <Link to="/login" className="text-sm text-muted-foreground hover:text-primary block">
                 Student? Login here →
-              </Link>
-              <Link to="/admin-login" className="text-sm text-muted-foreground hover:text-destructive block">
-                Admin Login →
               </Link>
             </div>
           </div>

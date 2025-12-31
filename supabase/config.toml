@@ -1,1 +1,4 @@
 project_id = "cawzmommjifzohakwwwx"
+
+[functions.school-student-approval]
+verify_jwt = false
