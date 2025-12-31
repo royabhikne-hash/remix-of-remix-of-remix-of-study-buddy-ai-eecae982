@@ -18,6 +18,7 @@ import {
   Clock,
   Loader2,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +30,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import StudentReportModal from "@/components/StudentReportModal";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +78,13 @@ const SchoolDashboard = () => {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectingStudent, setRejectingStudent] = useState<StudentData | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+
+  // Delete confirmation dialog
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    student: StudentData | null;
+  }>({ open: false, student: null });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const storedSchoolName = localStorage.getItem("schoolName");
@@ -319,6 +337,34 @@ const SchoolDashboard = () => {
   const handleLogout = () => {
     localStorage.clear();
     navigate("/");
+  };
+
+  const handleDeleteStudent = async (studentId: string) => {
+    setDeletingId(studentId);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .delete()
+        .eq("id", studentId);
+
+      if (error) throw error;
+
+      setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      toast({
+        title: "Student Removed",
+        description: "Student has been removed from your school.",
+      });
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      toast({
+        title: "Error",
+        description: "Failed to remove student. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
+      setDeleteDialog({ open: false, student: null });
+    }
   };
 
   const handleViewReport = (student: StudentData) => {
@@ -614,7 +660,7 @@ const SchoolDashboard = () => {
                           <th className="text-left p-4 font-semibold">Topic Studied</th>
                           <th className="text-left p-4 font-semibold">Trend</th>
                           <th className="text-left p-4 font-semibold">Sessions</th>
-                          <th className="text-left p-4 font-semibold">Report</th>
+                          <th className="text-left p-4 font-semibold">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -652,15 +698,30 @@ const SchoolDashboard = () => {
                             <td className="p-4">{getTrendLabel(student.improvementTrend)}</td>
                             <td className="p-4 font-medium">{student.totalSessions}</td>
                             <td className="p-4">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleViewReport(student)}
-                                className="text-primary hover:text-primary/80"
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                View
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleViewReport(student)}
+                                  className="text-primary hover:text-primary/80"
+                                >
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  View
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setDeleteDialog({ open: true, student })}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  disabled={deletingId === student.id}
+                                >
+                                  {deletingId === student.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -710,15 +771,30 @@ const SchoolDashboard = () => {
                             {getTrendLabel(student.improvementTrend)}
                           </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewReport(student)}
-                          className="w-full"
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          View Detailed Report
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewReport(student)}
+                            className="flex-1"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View Report
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteDialog({ open: true, student })}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            disabled={deletingId === student.id}
+                          >
+                            {deletingId === student.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -766,6 +842,37 @@ const SchoolDashboard = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Student Confirmation Dialog */}
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => !open && setDeleteDialog({ open: false, student: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Remove Student
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{deleteDialog.student?.name}</strong> from your school? 
+              This will permanently delete their account and all study data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteDialog.student && handleDeleteStudent(deleteDialog.student.id)}
+              disabled={deletingId === deleteDialog.student?.id}
+            >
+              {deletingId === deleteDialog.student?.id ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Remove Student
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Student Report Modal */}
       {selectedStudent && (

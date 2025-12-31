@@ -220,6 +220,50 @@ const StudyChat = ({ onEndStudy, studentId }: StudyChatProps) => {
     }
   };
 
+  // Current session ID for saving messages
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Save message to database
+  const saveMessageToDb = async (message: ChatMessage, sessId: string) => {
+    try {
+      await supabase.from("chat_messages").insert({
+        session_id: sessId,
+        role: message.role,
+        content: message.content,
+        image_url: message.imageUrl || null,
+      });
+    } catch (err) {
+      console.error("Error saving message:", err);
+    }
+  };
+
+  // Create or get session on first user message
+  const ensureSession = async (): Promise<string | null> => {
+    if (sessionId) return sessionId;
+    
+    if (!studentId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from("study_sessions")
+        .insert({
+          student_id: studentId,
+          topic: currentTopic || "General Study",
+          start_time: startTime.toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      
+      setSessionId(data.id);
+      return data.id;
+    } catch (err) {
+      console.error("Error creating session:", err);
+      return null;
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() && !selectedImage) return;
 
@@ -243,6 +287,12 @@ const StudyChat = ({ onEndStudy, studentId }: StudyChatProps) => {
       setCurrentTopic(foundTopic.charAt(0).toUpperCase() + foundTopic.slice(1));
     }
 
+    // Save user message to DB
+    const sessId = await ensureSession();
+    if (sessId) {
+      await saveMessageToDb(userMessage, sessId);
+    }
+
     const aiResponseText = await getAIResponse(newMessages);
     
     const aiResponse: ChatMessage = {
@@ -253,6 +303,12 @@ const StudyChat = ({ onEndStudy, studentId }: StudyChatProps) => {
     };
     
     setMessages((prev) => [...prev, aiResponse]);
+    
+    // Save AI response to DB
+    if (sessId) {
+      await saveMessageToDb(aiResponse, sessId);
+    }
+    
     setIsLoading(false);
   };
 
