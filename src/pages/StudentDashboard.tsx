@@ -14,8 +14,10 @@ import {
   BarChart3,
   MessageCircle,
   Loader2,
+  History,
 } from "lucide-react";
 import StudyChat from "@/components/StudyChat";
+import ChatHistory from "@/components/ChatHistory";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +50,7 @@ const StudentDashboard = () => {
   const { toast } = useToast();
   const { user, signOut, loading } = useAuth();
   const [isStudying, setIsStudying] = useState(false);
+  const [showChatHistory, setShowChatHistory] = useState(false);
   const [userName, setUserName] = useState("Student");
   const [studentId, setStudentId] = useState<string | null>(null);
   const [parentWhatsapp, setParentWhatsapp] = useState<string | null>(null);
@@ -410,6 +413,10 @@ const StudentDashboard = () => {
     );
   }
 
+  if (showChatHistory && studentId) {
+    return <ChatHistory studentId={studentId} onClose={() => setShowChatHistory(false)} />;
+  }
+
   if (isStudying) {
     return (
       <div className="min-h-screen bg-background p-4">
@@ -463,24 +470,29 @@ const StudentDashboard = () => {
                 ? "Great job studying today! Ready for more?"
                 : "Aaj kya padhna hai? Chal start karte hain!"}
             </p>
-            <Button variant="hero" size="xl" onClick={handleStartStudy}>
-              <Play className="w-5 h-5" />
-              Start Studying
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => navigate("/progress")} className="ml-3">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              View Progress
-            </Button>
-            <Button 
-              variant="secondary" 
-              size="lg" 
-              onClick={handleSendReport} 
-              disabled={sendingReport}
-              className="ml-3"
-            >
-              {sendingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageCircle className="w-4 h-4 mr-2" />}
-              Send Report Now
-            </Button>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button variant="hero" size="xl" onClick={handleStartStudy}>
+                <Play className="w-5 h-5" />
+                Start Studying
+              </Button>
+              <Button variant="outline" size="lg" onClick={() => setShowChatHistory(true)}>
+                <History className="w-4 h-4 mr-2" />
+                Chat History
+              </Button>
+              <Button variant="outline" size="lg" onClick={() => navigate("/progress")}>
+                <BarChart3 className="w-4 h-4 mr-2" />
+                View Progress
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="lg" 
+                onClick={handleSendReport} 
+                disabled={sendingReport}
+              >
+                {sendingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageCircle className="w-4 h-4 mr-2" />}
+                Send Report
+              </Button>
+            </div>
           </div>
         </div>
 
